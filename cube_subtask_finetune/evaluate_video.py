@@ -18,7 +18,7 @@ import torch
 from transformers import Qwen3VLProcessor, Qwen3VLForConditionalGeneration
 from peft import PeftModel
 
-TEST_DATA_ROOT = "/run/media/liuyao/Y/data_studio/prj_20260923_185840/data/1010_six_90"
+
 TEST_SESSION = "session_20261010_173611_lerobot"
 VIDEO_NAME = "observation.images.global.mp4"
 SAMPLE_FPS = 2
@@ -139,13 +139,14 @@ def compute_frame_accuracy(gt_segments, pred_segments, duration_s, fps=SAMPLE_FP
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base-model", default="/home/liuyao/Telephix/Telephix-annotation/cube_subtask_finetune/model/Qwen3-VL-2B-Instruct")
-    parser.add_argument("--lora-path", default="/home/liuyao/projects/cube_subtask_finetune/checkpoints_video/lora_final")
+    parser.add_argument("--base-model", default="Qwen/Qwen3-VL-2B-Instruct")
+    parser.add_argument("--lora-path", default="checkpoints_video/lora_final")
     parser.add_argument("--base-only", action="store_true")
+    parser.add_argument("--data-root", required=True, help="数据根目录")
     parser.add_argument("--output-dir", default="predictions_video")
     parser.add_argument("--max-new-tokens", type=int, default=512)
-    parser.add_argument("--fps", type=float, default=1.42, help="视频采样帧率 (default: 1.42, 128帧覆盖~90s)")
-    parser.add_argument("--max-frames", type=int, default=128)
+    parser.add_argument("--fps", type=float, default=1.78, help="视频采样帧率 (1.78, 160帧覆盖~90s)")
+    parser.add_argument("--max-frames", type=int, default=160)
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -164,7 +165,7 @@ def main():
         else:
             print("警告: 未找到 LoRA 权重")
 
-    session_dir = Path(TEST_DATA_ROOT) / TEST_SESSION
+    session_dir = Path(args.data_root) / TEST_SESSION
     episodes = sorted(session_dir.glob("episode_*"))
     print(f"测试: {len(episodes)} episodes\n")
 
@@ -194,7 +195,7 @@ def main():
         text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = processor(text=[text], videos=[str(video_path)], fps=args.fps,
                           max_frames=args.max_frames,
-                          size={"shortest_edge": 4587520, "longest_edge": 18350080},
+                          size={"shortest_edge": 11468800, "longest_edge": 45875200},
                           return_tensors="pt").to(model.device)
 
         t0 = time.time()

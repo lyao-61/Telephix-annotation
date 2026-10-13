@@ -20,9 +20,9 @@ from transformers import (
 )
 from peft import LoraConfig, get_peft_model
 
-MODEL_NAME = "/home/liuyao/Telephix/Telephix-annotation/cube_subtask_finetune/model/Qwen3-VL-2B-Instruct"
-DATA_FILE = "/home/liuyao/projects/cube_subtask_finetune/data/train_video.jsonl"
-OUTPUT_DIR = "/home/liuyao/projects/cube_subtask_finetune/checkpoints_video"
+MODEL_NAME = "Qwen/Qwen3-VL-2B-Instruct"
+DATA_FILE = "data/train_video.jsonl"
+OUTPUT_DIR = "checkpoints_video"
 
 LORA_RANK = 16
 LORA_ALPHA = 32
@@ -32,11 +32,11 @@ BATCH_SIZE = 1
 GRAD_ACCUM = 4
 LEARNING_RATE = 1e-4
 NUM_EPOCHS = 5
-MAX_FRAMES = 128            # 128帧覆盖~90s, 每0.7s一帧
-FPS = 1.42                  # 采样率: 128帧/90s ≈ 1.42fps
+MAX_FRAMES = 160            # 160帧覆盖全~90s视频, 每0.56s一帧
+FPS = 1.78                  # 采样率: 160帧/90s ≈ 1.78fps
 # size = min_pixels / max_pixels（总像素预算 = 每帧像素 × 帧数）
-# 每帧 ~320x448 = 143360 px × 128帧 → max_pixels ≈ 18.3M
-VIDEO_SIZE = {"shortest_edge": 4587520, "longest_edge": 18350080}
+# 每帧 ~448x640 = 286720 px × 160帧 ≈ 45.9M
+VIDEO_SIZE = {"shortest_edge": 11468800, "longest_edge": 45875200}
 
 
 class VideoSubtaskDataset(Dataset):

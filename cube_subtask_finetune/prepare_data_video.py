@@ -9,15 +9,14 @@
     python prepare_data_video.py
 """
 
+import argparse
 import json
 import os
 from collections import Counter
 from pathlib import Path
 
-DATA_ROOT = "/run/media/liuyao/Y/data_studio/prj_20260923_185840/data/1010_six_90"
-OUTPUT_DIR = "/home/liuyao/projects/cube_subtask_finetune/data"
-TEST_SESSION = "session_20261010_173611_lerobot"
 VIDEO_NAME = "observation.images.global.mp4"
+TEST_SESSION = "session_20261010_173611_lerobot"
 
 PROMPT = (
     "Watch this video of a robot manipulating a Rubik's cube. "
@@ -49,9 +48,9 @@ def format_timeline(segments: list, duration_s: float) -> str:
     return "\n".join(lines)
 
 
-def collect_episodes():
+def collect_episodes(data_root):
     sessions = {}
-    for session_dir in sorted(Path(DATA_ROOT).glob("session_*")):
+    for session_dir in sorted(Path(data_root).glob("session_*")):
         session_name = session_dir.name
         for episode_dir in sorted(session_dir.glob("episode_*")):
             subtasks_file = episode_dir / "subtasks.json"
@@ -66,7 +65,7 @@ def collect_episodes():
     return sessions
 
 
-def process_episodes(episodes, split_name):
+def process_episodes(episodes, split_name, output_dir):
     dataset = []
 
     for ep in episodes:
@@ -101,7 +100,7 @@ def process_episodes(episodes, split_name):
             ],
         })
 
-    output_file = os.path.join(OUTPUT_DIR, f"{split_name}.jsonl")
+    output_file = os.path.join(output_dir, f"{split_name}.jsonl")
     with open(output_file, "w") as f:
         for item in dataset:
             f.write(json.dumps(item, ensure_ascii=False, default=str) + "\n")
@@ -115,7 +114,13 @@ def process_episodes(episodes, split_name):
 
 
 def main():
-    sessions = collect_episodes()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data-root', required=True, help='数据根目录 (含 session_*/episode_*/)')
+    parser.add_argument('--output-dir', default='data', help='输出目录')
+    args = parser.parse_args()
+    data_root = args.data_root
+    output_dir = args.output_dir
+    sessions = collect_episodes(data_root)
     train_eps, test_eps = [], []
     for name, eps in sessions.items():
         (test_eps if name == TEST_SESSION else train_eps).extend(eps)
@@ -124,9 +129,9 @@ def main():
     print(f"测试集: {len(test_eps)} episodes")
     print(f"视频: {VIDEO_NAME}")
 
-    process_episodes(train_eps, "train_video")
-    process_episodes(test_eps, "test_video")
-    print(f"\n保存到: {OUTPUT_DIR}/train_video.jsonl, test_video.jsonl")
+    process_episodes(train_eps, "train_video", output_dir)
+    process_episodes(test_eps, "test_video", output_dir)
+    print(f"\n保存到: {output_dir}/train_video.jsonl, test_video.jsonl")
 
 
 if __name__ == "__main__":
