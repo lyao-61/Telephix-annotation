@@ -101,14 +101,16 @@ class VideoSubtaskDataset(Dataset):
         }
 
         # 传递视频相关参数
-        for key in ("pixel_values", "image_grid_thw", "mm_token_type_ids",
+        for key in ("pixel_values_videos", "pixel_values", "image_grid_thw", "mm_token_type_ids",
                      "video_grid_thw", "video_second_per_grid_ts", "second_per_grid_ts"):
             if key in inputs:
                 val = inputs[key]
                 if key == "mm_token_type_ids":
                     result[key] = val[0]
-                elif key in ("pixel_values",):
+                elif key in ("pixel_values", "pixel_values_videos", "image_grid_thw", "video_grid_thw"):
                     result[key] = val  # 保持原始 shape
+                elif key in ("video_second_per_grid_ts", "second_per_grid_ts"):
+                    result[key] = val[0] if val.dim() > 0 else val
                 else:
                     result[key] = val[0] if val.dim() > 0 else val
 
@@ -133,15 +135,15 @@ def collate_fn(batch):
     }
 
     # 合并视频相关参数
-    for key in ("pixel_values", "image_grid_thw", "mm_token_type_ids",
+    for key in ("pixel_values_videos", "pixel_values", "image_grid_thw", "mm_token_type_ids",
                  "video_grid_thw", "video_second_per_grid_ts", "second_per_grid_ts"):
         vals = [item[key] for item in batch if key in item]
         if not vals:
             continue
-        if key == "pixel_values":
+        if key in ("pixel_values", "pixel_values_videos"):
             result[key] = torch.cat(vals, dim=0)
         elif key in ("image_grid_thw", "video_grid_thw"):
-            result[key] = torch.cat(vals, dim=0)
+            result[key] = torch.cat(vals, dim=0)  # (total_videos, 3)
         elif key == "mm_token_type_ids":
             result[key] = torch.nn.utils.rnn.pad_sequence(vals, batch_first=True, padding_value=0)
         elif key in ("video_second_per_grid_ts", "second_per_grid_ts"):

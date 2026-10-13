@@ -5,3 +5,4 @@ peft>=0.10.0
 Pillow>=10.0.0
 accelerate>=0.30.0
 tqdm
+av==13.1.0
