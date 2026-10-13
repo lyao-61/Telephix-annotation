@@ -32,11 +32,11 @@ BATCH_SIZE = 1
 GRAD_ACCUM = 4
 LEARNING_RATE = 1e-4
 NUM_EPOCHS = 5
-MAX_FRAMES = 48             # 48帧 = 24秒 @2fps
-FPS = 2.0
+MAX_FRAMES = 64             # 64帧覆盖~90s视频
+FPS = 0.71                  # 采样率: 64帧/90s ≈ 0.71fps, 每1.4s一帧
 # size 的 shortest_edge/longest_edge 是 min_pixels/max_pixels（总像素预算，含所有帧）
-# 每帧 ~448x320 = 143360 px, 48帧 → max_pixels ≈ 6.9M
-VIDEO_SIZE = {"shortest_edge": 1720320, "longest_edge": 6881280}  # min=1/4 max
+# 每帧 ~320x448 = 143360 px, 64帧 → max_pixels ≈ 9.2M
+VIDEO_SIZE = {"shortest_edge": 2293760, "longest_edge": 9175040}
 
 
 class VideoSubtaskDataset(Dataset):

@@ -144,7 +144,8 @@ def main():
     parser.add_argument("--base-only", action="store_true")
     parser.add_argument("--output-dir", default="predictions_video")
     parser.add_argument("--max-new-tokens", type=int, default=512)
-    parser.add_argument("--fps", type=float, default=2.0)
+    parser.add_argument("--fps", type=float, default=0.71, help="视频采样帧率 (default: 0.71, 覆盖~90s)")
+    parser.add_argument("--max-frames", type=int, default=64)
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -192,7 +193,9 @@ def main():
         ]
         text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = processor(text=[text], videos=[str(video_path)], fps=args.fps,
-                          max_pixels=60*28*28, return_tensors="pt").to(model.device)
+                          max_frames=args.max_frames,
+                          size={"shortest_edge": 2293760, "longest_edge": 9175040},
+                          return_tensors="pt").to(model.device)
 
         t0 = time.time()
         with torch.no_grad():
