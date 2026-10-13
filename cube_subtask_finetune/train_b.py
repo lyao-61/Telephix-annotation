@@ -1,10 +1,12 @@
 """
-方案 B 训练：用 LoRA 微调 Qwen3-VL-2B-Instruct，输入摄像头画面 + IMU quaternion 图。
+多帧序列 + IMU 微调训练。
 
 用法:
-    python train_b.py
+    python train_b.py                          # 默认用 train_seq.jsonl
+    python train_b.py --data data/train_b.jsonl  # 指定数据文件
 """
 
+import argparse
 import json
 import os
 from pathlib import Path
@@ -22,8 +24,8 @@ from peft import LoraConfig, get_peft_model
 
 # ============ 配置 ============
 MODEL_NAME = "/home/liuyao/Telephix/Telephix-annotation/cube_subtask_finetune/model/Qwen3-VL-2B-Instruct"
-DATA_FILE = "/home/liuyao/projects/cube_subtask_finetune/data/train_b.jsonl"
-OUTPUT_DIR = "/home/liuyao/projects/cube_subtask_finetune/checkpoints_b"
+DATA_FILE = "/home/liuyao/projects/cube_subtask_finetune/data/train_seq.jsonl"
+OUTPUT_DIR = "/home/liuyao/projects/cube_subtask_finetune/checkpoints_seq"
 
 LORA_RANK = 16
 LORA_ALPHA = 32
@@ -156,6 +158,14 @@ def collate_fn(batch):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data", default=DATA_FILE, help="训练数据 jsonl 路径")
+    parser.add_argument("--output", default=OUTPUT_DIR, help="checkpoint 输出目录")
+    args = parser.parse_args()
+
+    data_file = args.data
+    output_dir = args.output
+
     print(f"加载模型: {MODEL_NAME}")
 
     processor = Qwen3VLProcessor.from_pretrained(MODEL_NAME, max_pixels=MAX_PIXELS)
@@ -174,12 +184,12 @@ def main():
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
 
-    print(f"加载数据: {DATA_FILE}")
-    dataset = SubtaskDatasetB(DATA_FILE, processor)
+    print(f"加载数据: {data_file}")
+    dataset = SubtaskDatasetB(data_file, processor)
     print(f"数据集大小: {len(dataset)}")
 
     training_args = TrainingArguments(
-        output_dir=OUTPUT_DIR,
+        output_dir=output_dir,
         per_device_train_batch_size=BATCH_SIZE,
         gradient_accumulation_steps=GRAD_ACCUM,
         learning_rate=LEARNING_RATE,
@@ -204,7 +214,7 @@ def main():
     print("开始训练...")
     trainer.train()
 
-    lora_output = os.path.join(OUTPUT_DIR, "lora_final")
+    lora_output = os.path.join(output_dir, "lora_final")
     model.save_pretrained(lora_output)
     processor.save_pretrained(lora_output)
     print(f"LoRA 权重保存到: {lora_output}")

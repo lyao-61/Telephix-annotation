@@ -100,26 +100,44 @@ def run_inference(model, processor, samples: list, batch_size: int, max_pixels: 
     t0 = time.time()
     for i in range(0, len(samples), batch_size):
         batch = samples[i:i + batch_size]
-        images = [Image.open(s["image"]).convert("RGB") for s in batch]
+        # 支持单图和多图样本
+        batch_image_lists = []
+        for s in batch:
+            if "images" in s:
+                batch_image_lists.append([Image.open(p).convert("RGB") for p in s["images"]])
+            else:
+                batch_image_lists.append([Image.open(s["image"]).convert("RGB")])
         gts = [s["conversations"][1]["value"] for s in batch]
         ids = [s["id"] for s in batch]
 
-        msgs = [
-            [{"role": "user", "content": [{"type": "image", "image": img}, {"type": "text", "text": PROMPT}]}]
-            for img in images
-        ]
-        texts = [processor.apply_chat_template(m, tokenize=False, add_generation_prompt=True) for m in msgs]
-        inputs = processor(text=texts, images=images, return_tensors="pt", padding=True).to(model.device)
+        msgs_list = []
+        texts = []
+        for images, s in zip(batch_image_lists, batch):
+            content = [{"type": "image"} for _ in images]
+            # 从 conversations 取 prompt 文本
+            prompt_text = s["conversations"][0]["value"].replace("<image>", "").replace("\n", " ").strip()
+            if not prompt_text:
+                prompt_text = PROMPT
+            content.append({"type": "text", "text": prompt_text})
+            msg = [{"role": "user", "content": content}]
+            msgs_list.append(msg)
+            texts.append(processor.apply_chat_template(msg, tokenize=False, add_generation_prompt=True))
 
-        with torch.no_grad():
-            outputs = model.generate(**inputs, max_new_tokens=32, do_sample=False)
+        # 每个 batch 单独处理（图片数量可能不同）
+        batch_preds = []
+        for images, text, msg in zip(batch_image_lists, texts, msgs_list):
+            inputs = processor(text=[text], images=images, return_tensors="pt", padding=True).to(model.device)
+            with torch.no_grad():
+                outputs = model.generate(**inputs, max_new_tokens=32, do_sample=False)
+            in_len = inputs["input_ids"].shape[1]
+            for output in outputs:
+                pred_text = processor.decode(output[in_len:], skip_special_tokens=True).strip()
+                batch_preds.append(match_label(pred_text))
 
-        in_len = inputs["input_ids"].shape[1]
-        for j, output in enumerate(outputs):
-            pred_text = processor.decode(output[in_len:], skip_special_tokens=True).strip()
-            predictions.append(match_label(pred_text))
-            ground_truths.append(gts[j])
-            sample_ids.append(ids[j])
+        for pred, gt, sid in zip(batch_preds, gts, ids):
+            predictions.append(pred)
+            ground_truths.append(gt)
+            sample_ids.append(sid)
 
         if (i // batch_size) % 50 == 0:
             print(f"  [{i + len(batch)}/{len(samples)}]")
@@ -310,7 +328,7 @@ def save_predictions_as_subtasks(sample_ids, predictions, output_dir):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--test-file", default="/home/liuyao/projects/cube_subtask_finetune/data/test.jsonl")
+    parser.add_argument("--test-file", default="/home/liuyao/projects/cube_subtask_finetune/data/test_seq.jsonl")
     parser.add_argument("--base-model", default="/home/liuyao/Telephix/Telephix-annotation/cube_subtask_finetune/model/Qwen3-VL-2B-Instruct")
     parser.add_argument("--lora-path", default="/home/liuyao/projects/cube_subtask_finetune/checkpoints/lora_final")
     parser.add_argument("--batch-size", type=int, default=4)
