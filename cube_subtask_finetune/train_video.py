@@ -32,9 +32,10 @@ BATCH_SIZE = 1
 GRAD_ACCUM = 4
 LEARNING_RATE = 1e-4
 NUM_EPOCHS = 5
-MAX_PIXELS = 60 * 28 * 28   # 视频模式下降低分辨率节省显存
-MAX_FRAMES = 32             # 每视频最多采样32帧
-FPS = 2.0                   # 视频采样帧率
+MAX_FRAMES = 16
+FPS = 2.0
+# 视频帧分辨率限制（processor 用 size 而非 max_pixels）
+VIDEO_SIZE = {"shortest_edge": 224, "longest_edge": 448}
 
 
 class VideoSubtaskDataset(Dataset):
@@ -72,7 +73,8 @@ class VideoSubtaskDataset(Dataset):
             text=[text],
             videos=[video_path],
             fps=FPS,
-            max_pixels=MAX_PIXELS,
+            size=VIDEO_SIZE,
+            max_frames=MAX_FRAMES,
             return_tensors="pt",
         )
 
@@ -88,7 +90,8 @@ class VideoSubtaskDataset(Dataset):
             text=[prompt_text],
             videos=[video_path],
             fps=FPS,
-            max_pixels=MAX_PIXELS,
+            size=VIDEO_SIZE,
+            max_frames=MAX_FRAMES,
             return_tensors="pt",
         )
         prompt_len = prompt_inputs["input_ids"].shape[1]
@@ -162,7 +165,7 @@ def main():
     args = parser.parse_args()
 
     print(f"加载模型: {MODEL_NAME}")
-    processor = Qwen3VLProcessor.from_pretrained(MODEL_NAME, max_pixels=MAX_PIXELS)
+    processor = Qwen3VLProcessor.from_pretrained(MODEL_NAME, max_pixels=4096*4096)  # 不限图片，视频用 size
     model = Qwen3VLForConditionalGeneration.from_pretrained(
         MODEL_NAME, torch_dtype=torch.bfloat16, device_map="auto",
     )
